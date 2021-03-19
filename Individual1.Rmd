@@ -1,0 +1,19 @@
+---
+title: "Lab 4"
+author: "Jack Novak"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+https://xdaiisu.github.io/ds202materials/hwlabs/lab4.html
+
+```{r}
+library(readxl)
+defense <- read_excel('../slides/cyclonesFootball2020.xlsx', sheet='Defensive')
+str(defense)
+```
