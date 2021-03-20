@@ -1,0 +1,180 @@
+---
+title: "Team"
+author: "Jack Novak"
+date: "3/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+defense <- read_excel('../slides/cyclonesFootball2020.xlsx', sheet='Defensive')
+bio <- read_excel('../slides/cyclonesFootball2020.xlsx', sheet='Biography')
+offense <- read_excel('../slides/cyclonesFootball2020.xlsx', sheet='Offensive')
+str(defense)
+```
+
+**Part One**
+
+#1 The player names and opponent names are factors.
+```{r}
+library(dplyr)
+library(tidyverse)
+bio <- bio %>%
+  mutate(Name=as.factor(Name))
+defense <- defense %>%
+  mutate(Name=as.factor(Name), Opponent_Opponent=as.factor(Opponent_Opponent))
+offense <- offense %>%
+  mutate(Name=as.factor(Name), Opponent_Opponent=as.factor(Opponent_Opponent))
+```
+
+#2 All offensive and defensive statistics are numerical. The Weight column in biography is also numeric. (Optional: Read ?across and learn to mutate multiple columns simultaneously using the across function in dplyr)
+
+```{r}
+bio <- bio %>%
+  na.omit() %>%
+  mutate(Weight = as.numeric(Weight))
+defenseClean <- defense %>%
+  mutate(across(Tackles_Solo:Pass_PB, as.numeric))
+offenseClean = offense %>%
+  replace_na(list(.=0)) %>%
+  mutate(across(Receiving_REC:Passing_INT,as.numeric)) %>%
+  as.data.frame()
+```
+
+#3 Change the Height column in biography into numeric. (Hint: Use a unit that works well)
+
+```{r}
+bioClean <- bio %>%
+  separate(Height, into = c("Feet", "Inches"), sep = "-") %>%
+  mutate(Feet=as.numeric(Feet),Inches=as.numeric(Inches),Feet=12*Feet, Height_inches = Feet+Inches) %>%
+  select(-Feet, -Inches)
+
+str(bioClean)
+str(offenseClean)
+str(defenseClean)
+
+```
+
+
+**Part 2**
+
+#1 Reformat the offClean data frame into a tidy format using pivot_longer. The type of statistic (Receiving_REC for the number of receivings, Receiving_YDS for receiving yards, etc) is added as a new key column named stat.
+
+```{r}
+LongOff2 <- LongOff<-offenseClean %>%
+  pivot_longer(Receiving_REC:Passing_INT, names_to ="stat", values_to = "value")%>%
+  na.omit() %>%
+  as.data.frame()
+head(LongOff)
+```
+
+#2 Show on the distributions of the offensive statistics. The distribution of each offensive statistic should be shown in a separate facet. Explain the patterns you see.
+
+```{r}
+library(ggplot2)
+ggplot(LongOff2, aes(x=value))+geom_histogram(bins=5)+facet_wrap(~stat)
+```
+
+Each of the distributions is right skewed. Some distributions are more level than others, such as rushing yards compared to passing yards, potentially indicating more players tend to rush the ball relative to the number of players that receive passes.
+
+#3 Did ISU have better offense against Oregon or Oklahoma? Answer this question by creating a scatterplot with the x- and y-axes being the receiving yards of the ISU players against these two opponents. A large number of receiving yards indicates good offense.
+
+```{r}
+t<-LongOff2 %>%
+  filter(stat=="Receiving_YDS",Opponent_Opponent %in% c("Oregon", "Oklahoma"))%>%
+   mutate(row = row_number()) %>%
+  pivot_wider(names_from = Opponent_Opponent, values_from = value) %>%
+  select(-row)
+
+ggplot(t, aes(x=Oklahoma, y=Oregon))+geom_point()
+```
+
+#4 Separate the Hometown column into two columns, namely, the city and the state where the player comes from. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)
+
+```{r}
+pbr <- bioClean %>%
+  separate(Hometown, into = c("City","State"), sep=", ")
+head(pbr)
+```
+
+
+#5 How many players are there from each state?
+
+```{r}
+pbr %>%
+  group_by(State) %>%
+  summarise(table(State))
+```
+
+**Part 3**
+
+#1 Find which states do the ISU players (both defensive and offensive) come from. Create an appropriate numerical or graphical summary.
+
+```{r}
+all<-left_join(offenseClean, defenseClean)%>%
+  left_join(pbr)%>%
+  group_by(State)
+
+  table(all$State)
+```
+
+```{r}
+tt <- ggplot(all, aes(State))
+
+tt+geom_bar()
+```
+
+
+#2 How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?
+```{r}
+brock <- all %>%
+  filter(Name=="Purdy, Brock") %>%
+  select(Name,Rushing_YDS, Tackles_Solo, State, Opponent_Opponent)%>%
+  summarize(mean=mean(Rushing_YDS, rm.na=TRUE), mean2=mean(Tackles_Solo, rm.na=TRUE))
+  
+ISUteam <- all %>%
+  filter(Name!="Purdy, Brock")%>%
+  select(Name,Rushing_YDS, Tackles_Solo, State, Opponent_Opponent) %>%
+  group_by(Name) %>%
+  summarize(mean=mean(Rushing_YDS, rm.na=TRUE), mean2=mean(Tackles_Solo, rm.na=TRUE))
+
+brock
+```
+
+```{r}
+ISUteam
+```
+Brock generally has more rushing yards than most players except Breece Hall. He has one tackle in the season, which appears to be above average.
+
+
+#3 Which ISU player(s) made the biggest progress over the last year? Compare the player-level statistics (i.e. averages and totals for each player) using both the 2020 and the 2019 data here. Choose for yourself the player statistics to investigate.
+
+```{r}
+defense2019 <- read_excel('../slides/cyclonesFootball2019.xlsx', sheet='Defensive') %>%
+    mutate(Name=as.factor(Name), Opponent_Opponent=as.factor(Opponent_Opponent))%>%
+   mutate(across(Tackles_Solo:Pass_PB, as.numeric))
+  
+bio2019 <- read_excel('../slides/cyclonesFootball2019.xlsx', sheet='Biography')%>%
+  separate(Height, into = c("Feet", "Inches"), sep = "-") %>%
+  mutate(Feet=as.numeric(Feet),Inches=as.numeric(Inches),Feet=12*Feet, Height_inches = Feet+Inches) %>%
+  select(-Feet, -Inches)
+
+offense2019 <- read_excel('../slides/cyclonesFootball2019.xlsx', sheet='Offensive')%>%
+  mutate(Name=as.factor(Name), Opponent_Opponent=as.factor(Opponent_Opponent))%>%
+  replace_na(list(.=0)) %>%
+  mutate(across(Rushing_ATT:Passing_INT,as.numeric)) %>%
+  as.data.frame()
+
+all2 <- left_join(defense2019, offense2019) %>%
+  left_join(bio2019) %>%
+  group_by(Name) %>%
+  summarize(mean=mean(Rushing_YDS, rm.na=TRUE), mean2=mean(Tackles_Solo, rm.na=TRUE))
+
+all2
+```
+Breece Hall is the most improved for a few reasons: (1) I'm pretty tired and recognize these numerical summaries as objectively terrible, and (2) his average rushing years increased from 74.75 in 2019 to 131 in 2020. Plus, I watched some of the games and I opine that he is the most improved.
+
